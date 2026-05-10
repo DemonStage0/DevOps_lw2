@@ -1,0 +1,12 @@
+numpy
+pandas
+scikit-learn
+pyyaml
+fastapi
+uvicorn
+pytest
+requests
+httpx
+sqlalchemy[asyncio]
+pydantic_settings
+asyncpg
