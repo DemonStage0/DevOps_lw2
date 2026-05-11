@@ -39,11 +39,7 @@ pipeline {
                     try {
                         bat 'chcp 65001 && cd DevOps_lw2 && docker-compose build'
                     } finally {
-                        bat '''
-                            chcp 65001
-                            cd DevOps_lw2
-                            docker-compose up -d
-                        '''
+                        bat 'chcp 65001 && cd DevOps_lw2 && docker-compose up -d'
                     }
                 }
             }
@@ -51,44 +47,40 @@ pipeline {
 
         stage('Run unit tests') {
             steps {
-                dir("DevOps_lw2") {
-                    bat '''
-                        chcp 65001
-                        for /f %%i in ('docker ps -qf "name=^devops_lw2-web-1"') do set containerId=%%i
-                        echo Container ID: %containerId%
-                        IF "%containerId%" == "" (
-                            echo "No container running"
-                            exit /b 1
-                        ) ELSE (
-                            docker exec %containerId% python -m pytest src/unit_tests/ -v
-                        )
-                    '''
-                }
+                bat '''
+                    chcp 65001
+                    cd DevOps_lw2
+                    for /f %%i in ('docker ps -qf "name=^devops_lw2-web-1"') do set containerId=%%i
+                    echo Container ID: %containerId%
+                    IF "%containerId%" == "" (
+                        echo "No container running"
+                        exit /b 1
+                    ) ELSE (
+                        docker exec %containerId% python -m pytest src/unit_tests/ -v
+                    )
+                '''
             }
         }
 
         stage('Checkout container logs') {
             steps {
-                dir("DevOps_lw2") {
-                    bat '''
-                        chcp 65001
-                        for /f %%i in ('docker ps -qf "name=^devops_lw2-web-1"') do set containerId=%%i
-                        echo Container ID: %containerId%
-                        IF "%containerId%" == "" (
-                            echo "No container running"
-                        ) ELSE (
-                            docker logs --tail 100 %containerId%
-                        )
-                    '''
-                }
+                bat '''
+                    chcp 65001
+                    cd DevOps_lw2
+                    for /f %%i in ('docker ps -qf "name=^devops_lw2-web-1"') do set containerId=%%i
+                    echo Container ID: %containerId%
+                    IF "%containerId%" == "" (
+                        echo "No container running"
+                    ) ELSE (
+                        docker logs --tail 100 %containerId%
+                    )
+                '''
             }
         }
 
         stage('Check unit tests results') {
             steps {
-                dir("DevOps_lw2") {
-                    bat 'chcp 65001 && docker-compose logs -t --tail 10'
-                }
+                bat 'chcp 65001 && cd DevOps_lw2 && docker-compose logs -t --tail 10'
             }
         }
 
@@ -102,9 +94,7 @@ pipeline {
     post {
         always {
             script {
-                dir("DevOps_lw2") {
-                    bat 'chcp 65001 && docker-compose down'
-                }
+                bat 'chcp 65001 && cd DevOps_lw2 && docker-compose down'
                 bat 'chcp 65001 && docker logout'
             }
         }
