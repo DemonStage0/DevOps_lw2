@@ -1,9 +1,105 @@
 pipeline {
     agent any
+
+    environment {
+        DOCKERHUB_CREDS = credentials('DevOps_lw2')
+        LC_ALL = "en_US.UTF-8"
+        LANG = "en_US.UTF-8"
+        LANGUAGE = "en_US.UTF-8"
+    }
+
+    options {
+        timestamps()
+        skipDefaultCheckout(true)
+    }
+
     stages {
-        stage('Test') {
+        stage('Clone github repository') {
             steps {
-                bat 'echo Hello from Jenkins'
+                cleanWs()
+                bat 'chcp 65001 && git clone -b main https://github.com/DemonStage0/DevOps_lw2.git'
+            }
+        }
+
+        stage('Checkout repo dir') {
+            steps {
+                bat 'chcp 65001 && cd DevOps_lw2 && dir'
+            }
+        }
+
+        stage('Login') {
+            steps {
+                bat 'chcp 65001 && docker login -u %DOCKERHUB_CREDS_USR% -p %DOCKERHUB_CREDS_PSW%'
+            }
+        }
+
+        stage('Create and run docker container') {
+            steps {
+                script {
+                    try {
+                        bat 'chcp 65001 && cd DevOps_lw2 && docker-compose build'
+                    } finally {
+                        bat 'chcp 65001 && cd DevOps_lw2 && docker-compose up -d'
+                    }
+                }
+            }
+        }
+
+        stage('Wait for services') {
+            steps {
+                bat 'chcp 65001 && ping -n 11 127.0.0.1 > nul'
+            }
+        }
+
+        stage('Run unit tests') {
+            steps {
+                bat '''
+                    chcp 65001
+                    cd DevOps_lw2
+                    for /f %%i in ('docker ps -qf "name=^devops_lw2-web-1"') do set containerId=%%i
+                    echo Container ID: %containerId%
+                    IF "%containerId%" == "" (
+                        echo "No container running"
+                        exit /b 1
+                    ) ELSE (
+                        docker exec %containerId% python -m pytest src/unit_tests/ -v
+                    )
+                '''
+            }
+        }
+
+        stage('Checkout container logs') {
+            steps {
+                bat '''
+                    chcp 65001
+                    cd DevOps_lw2
+                    for /f %%i in ('docker ps -qf "name=^devops_lw2-web-1"') do set containerId=%%i
+                    echo Container ID: %containerId%
+                    IF "%containerId%" == "" (
+                        echo "No container running"
+                    ) ELSE (
+                        docker logs --tail 100 %containerId%
+                    )
+                '''
+            }
+        }
+
+        stage('Check unit tests results') {
+            steps {
+                bat 'chcp 65001 && cd DevOps_lw2 && docker-compose logs -t --tail 10'
+            }
+        }
+
+        stage('Push') {
+            steps {
+                bat 'chcp 65001 && docker tag lw2-web:latest demonstage/devops_lw2:latest && docker push demonstage/devops_lw2:latest'
+            }
+        }
+
+        stage('Cleanup') {
+            steps {
+                bat 'chcp 65001 && cd DevOps_lw2 && docker-compose down'
+                bat 'chcp 65001 && docker logout'
             }
         }
     }
