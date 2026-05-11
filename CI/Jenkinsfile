@@ -47,10 +47,8 @@ pipeline {
 
         stage('Wait for services') {
             steps {
-                script {
-                    // Замена timeout на ping для задержки (15 секунд)
-                    bat 'chcp 65001 && ping -n 16 127.0.0.1 > nul'
-                }
+                // Используем ping вместо timeout
+                bat 'chcp 65001 && ping -n 16 127.0.0.1 > nul'
             }
         }
 
@@ -65,13 +63,13 @@ pipeline {
                 bat '''
                     chcp 65001
                     cd DevOps_lw2
-                    for /f %%i in ('docker ps -qf "name=^devops_lw2-web-1"') do set containerId=%%i
-                    IF "%containerId%" == "" (
+                    for /f "tokens=*" %%i in ('docker ps -qf "name=^devops_lw2-web-1"') do set containerId=%%i
+                    IF "!containerId!" == "" (
                         echo "No web container running"
                         exit 1
                     ) ELSE (
                         echo Running unit tests...
-                        docker exec %containerId% python -m pytest src/unit_tests/ -v
+                        docker exec !containerId! python -m pytest src/unit_tests/ -v
                     )
                 '''
             }
@@ -103,22 +101,15 @@ pipeline {
 
         stage('Tag and push image') {
             steps {
-                bat 'chcp 65001 && cd DevOps_lw2 && docker tag lw2-web:latest altairzero/devops_lw2:latest && docker push altairzero/devops_lw2:latest'
+                bat 'chcp 65001 && cd DevOps_lw2 && docker tag devops_lw2-web:latest altairzero/devops_lw2:latest && docker push altairzero/devops_lw2:latest'
             }
         }
     }
 
     post {
         always {
-            // Важно: выполняем в той же сессии, где есть директория DevOps_lw2
-            bat '''
-                chcp 65001
-                cd DevOps_lw2 2>nul || echo Directory not found, skipping cleanup
-                IF EXIST docker-compose.yml (
-                    docker-compose down -v
-                )
-                docker logout
-            '''
+            // Очистка в том же workspace, без node('windows')
+            bat 'chcp 65001 && cd DevOps_lw2 && docker-compose down -v && docker logout'
         }
         success {
             echo 'CI Pipeline completed successfully!'
