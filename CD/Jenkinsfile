@@ -14,92 +14,107 @@ pipeline {
     }
 
     stages {
-
-        stage('Login') {
+        stage('Login to DockerHub') {
             steps {
                 bat 'chcp 65001 && docker login -u %DOCKERHUB_CREDS_USR% -p %DOCKERHUB_CREDS_PSW%'
             }
         }
 
-        stage('Pull image') {
+        stage('Pull Docker image') {
             steps {
-                bat 'chcp 65001 && docker pull demonstage/devops_lw2:latest'
+                bat 'chcp 65001 && docker pull altairzero/devops_lw2:latest'
             }
         }
 
-        stage('Stop old containers') {
+        stage('Stop and remove old containers') {
             steps {
-                script {
-                    try {
-                        bat 'chcp 65001 && docker stop devops_lw2_cd'
-                        bat 'chcp 65001 && docker rm devops_lw2_cd'
-                    } catch (Exception e) {
-                        echo 'No old CD container to remove'
-                    }
-                    try {
-                        bat 'chcp 65001 && docker stop devops_lw2-web-1'
-                        bat 'chcp 65001 && docker rm devops_lw2-web-1'
-                    } catch (Exception e) {
-                        echo 'No old CI container to remove'
-                    }
-                }
+                bat '''
+                    chcp 65001
+                    docker stop devops_lw2-web-1 2>nul || echo Container not running
+                    docker rm devops_lw2-web-1 2>nul || echo Container not exists
+                '''
             }
         }
 
         stage('Run container') {
             steps {
-                bat 'chcp 65001 && docker run --name devops_lw2_cd -p 8000:8000 -d demonstage/devops_lw2:latest'
+                bat 'chcp 65001 && docker run --name devops_lw2-web-1 -p 8000:8000 -d altairzero/devops_lw2:latest'
             }
         }
 
         stage('Wait for service') {
             steps {
-                bat 'chcp 65001 && ping -n 11 127.0.0.1 > nul'
+                bat '''
+                    chcp 65001
+                    echo Waiting for service to start...
+                    timeout /t 10 /nobreak
+                '''
             }
         }
 
-        stage('Functional test - health check') {
+        stage('Functional test - Health check') {
             steps {
-                bat 'chcp 65001 && curl -s http://localhost:8000/'
+                bat '''
+                    chcp 65001
+                    echo Testing API health...
+                    curl -s http://localhost:8000/ || (echo Service not accessible && exit 1)
+                '''
             }
         }
 
-        stage('Functional test - train model') {
+        stage('Functional test - Train model') {
             steps {
-                bat 'chcp 65001 && curl -s "http://localhost:8000/train"'
+                bat '''
+                    chcp 65001
+                    echo Training model...
+                    curl -s http://localhost:8000/train
+                '''
             }
         }
 
-        stage('Functional test - predict') {
+        stage('Functional test - Predict #1') {
             steps {
-                bat 'chcp 65001 && curl -s "http://localhost:8000/predict?RI=1.52101&Na=13.64&Mg=4.49&Al=1.1&Si=71.78&K=0.06&Ca=8.75&Ba=0&Fe=0"'
+                bat '''
+                    chcp 65001
+                    echo Testing prediction with default values...
+                    curl -s "http://localhost:8000/predict?RI=1.52101&Na=13.64&Mg=4.49&Al=1.1&Si=71.78&K=0.06&Ca=8.75&Ba=0.0&Fe=0.0"
+                '''
             }
         }
 
-        stage('Container logs') {
+        stage('Functional test - Predict #2') {
             steps {
-                bat 'chcp 65001 && docker logs --tail 50 devops_lw2_cd'
+                bat '''
+                    chcp 65001
+                    echo Testing prediction with different values...
+                    curl -s "http://localhost:8000/predict?RI=1.51761&Na=13.89&Mg=3.6&Al=1.36&Si=72.73&K=0.48&Ca=7.83&Ba=0.0&Fe=0.0"
+                '''
+            }
+        }
+
+        stage('Check container logs') {
+            steps {
+                bat 'chcp 65001 && docker logs --tail 50 devops_lw2-web-1'
             }
         }
     }
 
     post {
         always {
-            script {
-                try {
-                    bat 'chcp 65001 && docker stop devops_lw2_cd'
-                    bat 'chcp 65001 && docker rm devops_lw2_cd'
-                } catch (Exception e) {
-                    echo 'Container already removed'
-                }
-                bat 'chcp 65001 && docker logout'
+            node('windows') {
+                bat '''
+                    chcp 65001
+                    docker stop devops_lw2-web-1
+                    docker rm devops_lw2-web-1
+                    docker logout
+                '''
             }
         }
         success {
-            echo 'CD Pipeline completed! All functional tests passed!'
+            echo 'CD Pipeline completed successfully! All functional tests passed!'
         }
         failure {
-            echo 'CD Pipeline failed! Check logs above.'
+            echo 'CD Pipeline failed! Check logs for details.'
         }
     }
 }

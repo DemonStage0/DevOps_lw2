@@ -1,23 +1,143 @@
 pipeline {
     agent any
+
     environment {
         DOCKERHUB_CREDS = credentials('DevOps_lw2')
+        LC_ALL = "en_US.UTF-8"
+        LANG = "en_US.UTF-8"
+        LANGUAGE = "en_US.UTF-8"
     }
+
+    options {
+        timestamps()
+        skipDefaultCheckout(true)
+    }
+
     stages {
-        stage('Login') {
+        stage('Clone repository') {
             steps {
-                bat 'docker login -u %DOCKERHUB_CREDS_USR% -p %DOCKERHUB_CREDS_PSW%'
+                cleanWs()
+                bat 'chcp 65001 && git clone -b main https://github.com/DemonStage0/DevOps_lw2.git'
             }
         }
-        stage('Build') {
+
+        stage('Checkout repo dir') {
             steps {
-                bat 'docker-compose build'
+                bat 'chcp 65001 && cd DevOps_lw2 && dir'
             }
         }
-        stage('Run') {
+
+        stage('Login to DockerHub') {
             steps {
-                bat 'docker-compose up -d'
+                bat 'chcp 65001 && docker login -u %DOCKERHUB_CREDS_USR% -p %DOCKERHUB_CREDS_PSW%'
             }
+        }
+
+        stage('Build images') {
+            steps {
+                bat 'chcp 65001 && cd DevOps_lw2 && docker-compose build --no-cache'
+            }
+        }
+
+        stage('Start services') {
+            steps {
+                bat 'chcp 65001 && cd DevOps_lw2 && docker-compose up -d'
+            }
+        }
+
+        stage('Wait for services') {
+            steps {
+                bat '''
+                    chcp 65001
+                    echo Waiting for services to be ready...
+                    timeout /t 15 /nobreak
+                '''
+            }
+        }
+
+        stage('Run unit tests') {
+            steps {
+                dir("DevOps_lw2") {
+                    bat '''
+                        for /f %%i in ('docker ps -qf "name=^devops_lw2-web-1"') do set containerId=%%i
+                        IF "%containerId%" == "" (
+                            echo "No web container running"
+                            exit 1
+                        ) ELSE (
+                            echo Running unit tests...
+                            docker exec %containerId% python -m pytest src/unit_tests/ -v
+                        )
+                    '''
+                }
+            }
+        }
+
+        stage('Functional test - Health check') {
+            steps {
+                bat '''
+                    chcp 65001
+                    echo Testing API health...
+                    curl -s http://localhost:8000/
+                '''
+            }
+        }
+
+        stage('Functional test - Train model') {
+            steps {
+                bat '''
+                    chcp 65001
+                    echo Training model...
+                    curl -s http://localhost:8000/train
+                '''
+            }
+        }
+
+        stage('Functional test - Predict') {
+            steps {
+                bat '''
+                    chcp 65001
+                    echo Testing prediction...
+                    curl -s "http://localhost:8000/predict?RI=1.52101&Na=13.64&Mg=4.49&Al=1.1&Si=71.78&K=0.06&Ca=8.75&Ba=0.0&Fe=0.0"
+                '''
+            }
+        }
+
+        stage('Check container logs') {
+            steps {
+                dir("DevOps_lw2") {
+                    bat 'docker-compose logs --tail 50'
+                }
+            }
+        }
+
+        stage('Tag and push image') {
+            steps {
+                bat '''
+                    chcp 65001
+                    cd DevOps_lw2
+                    docker tag lw2-web:latest altairzero/devops_lw2:latest
+                    docker push altairzero/devops_lw2:latest
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            node('windows') {
+                bat '''
+                    chcp 65001
+                    cd DevOps_lw2
+                    docker-compose down -v
+                    docker logout
+                '''
+            }
+        }
+        success {
+            echo 'CI Pipeline completed successfully!'
+        }
+        failure {
+            echo 'CI Pipeline failed! Check logs.'
         }
     }
 }
