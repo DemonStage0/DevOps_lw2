@@ -19,23 +19,13 @@ class DataPreprocessor:
         self.log.info("DataPreprocessor инициализирован")
 
     async def prepare_data(self, X_raw: list, y_raw: list) -> tuple:
-        """
-        Полный пайплайн предобработки: разделение и масштабирование.
-
-        Args:
-            X_raw: список списков признаков из БД.
-            y_raw: список меток классов из БД.
-
-        Returns:
-            tuple: (X_train_scaled, X_test_scaled, y_train, y_test)
-        """
+        """Разделение и масштабирование данных."""
         columns = ["RI", "Na", "Mg", "Al", "Si", "K", "Ca", "Ba", "Fe"]
         X = pd.DataFrame(X_raw, columns=columns)
         y = pd.Series(y_raw, name="Type")
 
         self.log.info(f"Данные загружены: X.shape={X.shape}, y.shape={y.shape}")
 
-        # Разделение на train/test
         test_size = self.config.getfloat("MODEL", "test_size")
         random_state = self.config.getint("MODEL", "random_state")
 
@@ -43,19 +33,14 @@ class DataPreprocessor:
             X, y, test_size=test_size,
             random_state=random_state, stratify=y
         )
-        self.log.info(
-            f"Данные разделены: train={X_train.shape}, test={X_test.shape}"
-        )
+        self.log.info(f"Данные разделены: train={X_train.shape}, test={X_test.shape}")
 
-        # Масштабирование
         scaler = StandardScaler()
         X_train_scaled = scaler.fit_transform(X_train)
         X_test_scaled = scaler.transform(X_test)
 
-        # Конвертация обратно в DataFrame с сохранением колонок
         X_train_scaled = pd.DataFrame(X_train_scaled, columns=columns)
         X_test_scaled = pd.DataFrame(X_test_scaled, columns=columns)
 
         self.log.info("Данные отмасштабированы (StandardScaler)")
-        self.log.info("Предобработка завершена")
         return X_train_scaled, X_test_scaled, y_train, y_test

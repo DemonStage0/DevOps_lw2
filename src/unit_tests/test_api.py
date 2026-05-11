@@ -30,8 +30,11 @@ class TestAPI(unittest.TestCase):
             self.skipTest("API не запущен")
 
     def test_predict(self):
-        """Проверка эндпоинта предсказания."""
+        """Проверка эндпоинта предсказания (сначала обучаем)."""
         try:
+            # Сначала обучаем модель
+            requests.get(f"{self.BASE_URL}/train")
+            # Затем предсказываем
             params = {
                 "RI": 1.52101, "Na": 13.64, "Mg": 4.49,
                 "Al": 1.1, "Si": 71.78, "K": 0.06,

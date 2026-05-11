@@ -5,10 +5,10 @@ import pickle
 import yaml
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import f1_score, accuracy_score
-from sklearn.preprocessing import StandardScaler
 from logger import Logger
 
 SHOW_LOG = True
+
 
 class ModelTrainer:
     """Класс обучения RandomForest и управления экспериментами."""
@@ -36,7 +36,6 @@ class ModelTrainer:
         Returns:
             dict: результат обучения с ключами status, f1_score, experiment_path.
         """
-        # Данные приходят уже отмасштабированными из DataPreprocessor
         params = {
             "n_estimators": self.config.getint("MODEL", "n_estimators"),
             "criterion": self.config["MODEL"]["criterion"],
@@ -54,20 +53,19 @@ class ModelTrainer:
         }
         self.log.info(f"Обучение завершено: {metrics}")
 
-        exp_dir = self._save_experiment(model, None, params, metrics)
+        exp_dir = self._save_experiment(model, params, metrics)
         return {
             "status": "success",
             "f1_score": metrics["f1_score"],
             "experiment_path": exp_dir
         }
 
-    def _save_experiment(self, model, scaler, params, metrics) -> str:
+    def _save_experiment(self, model, params, metrics) -> str:
         """
         Сохранение артефактов эксперимента в подпапку.
 
         Args:
             model: обученная модель.
-            scaler: StandardScaler (не используется, т.к. масштабирование в препроцессоре).
             params: гиперпараметры модели.
             metrics: словарь с метриками.
 
@@ -101,11 +99,15 @@ class ModelTrainer:
         with open(os.path.join(exp_dir, "metrics.yml"), "w") as f:
             yaml.safe_dump(metrics, f)
 
-        # logs.txt
-        if os.path.exists("logfile.log"):
-            with open("logfile.log", "r") as src, \
-                 open(os.path.join(exp_dir, "logs.txt"), "w") as dst:
-                dst.write(src.read())
+        # Копирование логов (с обработкой ошибок кодировки)
+        log_file = "logfile.log"
+        if os.path.exists(log_file):
+            try:
+                with open(log_file, "r", encoding="utf-8", errors="ignore") as src, \
+                     open(os.path.join(exp_dir, "logs.txt"), "w", encoding="utf-8") as dst:
+                    dst.write(src.read())
+            except Exception as e:
+                self.log.warning(f"Не удалось скопировать логи: {e}")
 
         self.log.info(f"Эксперимент сохранён: {exp_dir}")
         return exp_dir
