@@ -100,7 +100,7 @@ pipeline {
 
         stage('Tag and push image') {
             steps {
-                bat 'chcp 65001 && cd DevOps_lw2 && docker tag devops_lw2-web:latest altairzero/devops_lw2:latest && docker push altairzero/devops_lw2:latest'
+                bat 'chcp 65001 && cd DevOps_lw2 && docker tag devops_lw2-web:latest demonstage/devops_lw2:latest && docker push demonstage/devops_lw2:latest'
             }
         }
     }

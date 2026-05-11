@@ -29,7 +29,7 @@ pipeline {
 
         stage('Pull Docker images') {
             steps {
-                bat 'chcp 65001 && docker pull altairzero/devops_lw2:latest && docker pull postgres:15'
+                bat 'chcp 65001 && docker pull demonstage/devops_lw2:latest && docker pull postgres:15'
             }
         }
 
@@ -47,9 +47,7 @@ pipeline {
 
         stage('Wait for services') {
             steps {
-                script {
-                    bat 'chcp 65001 && ping -n 21 127.0.0.1 > nul'
-                }
+                bat 'chcp 65001 && ping -n 21 127.0.0.1 > nul'
             }
         }
 
@@ -92,14 +90,7 @@ pipeline {
 
     post {
         always {
-            bat '''
-                chcp 65001
-                cd DevOps_lw2 2>nul || echo Directory not found
-                IF EXIST docker-compose.yml (
-                    docker-compose down -v
-                )
-                docker logout
-            '''
+            bat 'chcp 65001 && cd DevOps_lw2 && docker-compose down -v && docker logout'
         }
         success {
             echo 'CD Pipeline completed successfully! All functional tests passed!'
