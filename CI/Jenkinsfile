@@ -10,7 +10,6 @@ pipeline {
 
     options {
         timestamps()
-        skipDefaultCheckout(true)
     }
 
     stages {
@@ -42,6 +41,12 @@ pipeline {
                         bat 'chcp 65001 && cd DevOps_lw2 && docker-compose up -d'
                     }
                 }
+            }
+        }
+
+        stage('Wait for services') {
+            steps {
+                bat 'chcp 65001 && ping -n 11 127.0.0.1 > nul'
             }
         }
 
@@ -89,11 +94,9 @@ pipeline {
                 bat 'chcp 65001 && docker tag lw2-web:latest demonstage/devops_lw2:latest && docker push demonstage/devops_lw2:latest'
             }
         }
-    }
 
-    post {
-        always {
-            script {
+        stage('Cleanup') {
+            steps {
                 bat 'chcp 65001 && cd DevOps_lw2 && docker-compose down'
                 bat 'chcp 65001 && docker logout'
             }
