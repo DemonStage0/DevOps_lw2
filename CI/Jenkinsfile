@@ -47,91 +47,78 @@ pipeline {
 
         stage('Wait for services') {
             steps {
-                bat '''
-                    chcp 65001
-                    echo Waiting for services to be ready...
-                    timeout /t 15 /nobreak
-                '''
+                script {
+                    // Замена timeout на ping для задержки (15 секунд)
+                    bat 'chcp 65001 && ping -n 16 127.0.0.1 > nul'
+                }
+            }
+        }
+
+        stage('Check services status') {
+            steps {
+                bat 'chcp 65001 && cd DevOps_lw2 && docker-compose ps'
             }
         }
 
         stage('Run unit tests') {
             steps {
-                dir("DevOps_lw2") {
-                    bat '''
-                        for /f %%i in ('docker ps -qf "name=^devops_lw2-web-1"') do set containerId=%%i
-                        IF "%containerId%" == "" (
-                            echo "No web container running"
-                            exit 1
-                        ) ELSE (
-                            echo Running unit tests...
-                            docker exec %containerId% python -m pytest src/unit_tests/ -v
-                        )
-                    '''
-                }
+                bat '''
+                    chcp 65001
+                    cd DevOps_lw2
+                    for /f %%i in ('docker ps -qf "name=^devops_lw2-web-1"') do set containerId=%%i
+                    IF "%containerId%" == "" (
+                        echo "No web container running"
+                        exit 1
+                    ) ELSE (
+                        echo Running unit tests...
+                        docker exec %containerId% python -m pytest src/unit_tests/ -v
+                    )
+                '''
             }
         }
 
         stage('Functional test - Health check') {
             steps {
-                bat '''
-                    chcp 65001
-                    echo Testing API health...
-                    curl -s http://localhost:8000/
-                '''
+                bat 'chcp 65001 && curl -s http://localhost:8000/'
             }
         }
 
         stage('Functional test - Train model') {
             steps {
-                bat '''
-                    chcp 65001
-                    echo Training model...
-                    curl -s http://localhost:8000/train
-                '''
+                bat 'chcp 65001 && curl -s http://localhost:8000/train'
             }
         }
 
         stage('Functional test - Predict') {
             steps {
-                bat '''
-                    chcp 65001
-                    echo Testing prediction...
-                    curl -s "http://localhost:8000/predict?RI=1.52101&Na=13.64&Mg=4.49&Al=1.1&Si=71.78&K=0.06&Ca=8.75&Ba=0.0&Fe=0.0"
-                '''
+                bat 'chcp 65001 && curl -s "http://localhost:8000/predict?RI=1.52101&Na=13.64&Mg=4.49&Al=1.1&Si=71.78&K=0.06&Ca=8.75&Ba=0.0&Fe=0.0"'
             }
         }
 
         stage('Check container logs') {
             steps {
-                dir("DevOps_lw2") {
-                    bat 'docker-compose logs --tail 50'
-                }
+                bat 'chcp 65001 && cd DevOps_lw2 && docker-compose logs --tail 50'
             }
         }
 
         stage('Tag and push image') {
             steps {
-                bat '''
-                    chcp 65001
-                    cd DevOps_lw2
-                    docker tag lw2-web:latest altairzero/devops_lw2:latest
-                    docker push altairzero/devops_lw2:latest
-                '''
+                bat 'chcp 65001 && cd DevOps_lw2 && docker tag lw2-web:latest altairzero/devops_lw2:latest && docker push altairzero/devops_lw2:latest'
             }
         }
     }
 
     post {
         always {
-            node('windows') {
-                bat '''
-                    chcp 65001
-                    cd DevOps_lw2
+            // Важно: выполняем в той же сессии, где есть директория DevOps_lw2
+            bat '''
+                chcp 65001
+                cd DevOps_lw2 2>nul || echo Directory not found, skipping cleanup
+                IF EXIST docker-compose.yml (
                     docker-compose down -v
-                    docker logout
-                '''
-            }
+                )
+                docker logout
+            '''
         }
         success {
             echo 'CI Pipeline completed successfully!'
