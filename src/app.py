@@ -1,4 +1,3 @@
-"""FastAPI-сервис для классификации типов стекла."""
 import sys
 import os
 from fastapi import FastAPI, HTTPException, Query
@@ -14,6 +13,18 @@ from predict import Predictor
 
 app = FastAPI(title="Glass Classification API", version="2.0.0")
 log = Logger(True).get_logger(__name__)
+
+
+@app.get("/")
+async def root():
+    """Корневой эндпоинт для проверки работоспособности."""
+    return {"message": "Glass Classification API is running", "version": "2.0.0"}
+
+
+@app.get("/health")
+async def health():
+    """Эндпоинт проверки здоровья сервиса."""
+    return {"status": "healthy"}
 
 
 @app.get("/train")

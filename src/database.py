@@ -1,4 +1,3 @@
-"""Модуль для взаимодействия с базой данных через SQLAlchemy."""
 from datetime import datetime
 from typing import List
 from sqlalchemy import Column, Integer, Float, DateTime, select

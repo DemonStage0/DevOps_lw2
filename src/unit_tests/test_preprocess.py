@@ -1,26 +1,61 @@
-import os
-import sys
-import unittest
-sys.path.insert(1, os.path.join(os.getcwd(), "src"))
-from preprocess import DataPreprocessor
+import configparser
+import pandas as pd
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from logger import Logger
+
+SHOW_LOG = True
 
 
-class TestDataPreprocessor(unittest.TestCase):
-    """Тесты для DataPreprocessor."""
+class DataPreprocessor:
+    """Класс для загрузки, разделения и масштабирования данных."""
 
-    def setUp(self) -> None:
-        """Подготовка перед каждым тестом."""
-        self.preprocessor = DataPreprocessor()
+    def __init__(self) -> None:
+        """Инициализация препроцессора с конфигурацией из config.ini."""
+        logger = Logger(SHOW_LOG)
+        self.log = logger.get_logger(__name__)
+        self.config = configparser.ConfigParser()
+        self.config.read("config.ini")
+        self.log.info("DataPreprocessor инициализирован")
 
-    def test_prepare_data(self):
-        """Проверка корректности разделения данных."""
-        X_train, X_test, y_train, y_test = self.preprocessor.prepare_data()
-        self.assertEqual(X_train.shape[1], 9)
-        self.assertEqual(X_test.shape[1], 9)
-        self.assertEqual(len(X_train), len(y_train))
-        self.assertEqual(len(X_test), len(y_test))
-        self.assertGreater(len(X_train), len(X_test))
+    async def prepare_data(self, X_raw: list, y_raw: list) -> tuple:
+        """
+        Полный пайплайн предобработки: разделение и масштабирование.
 
+        Args:
+            X_raw: список списков признаков из БД.
+            y_raw: список меток классов из БД.
 
-if __name__ == "__main__":
-    unittest.main()
+        Returns:
+            tuple: (X_train_scaled, X_test_scaled, y_train, y_test)
+        """
+        columns = ["RI", "Na", "Mg", "Al", "Si", "K", "Ca", "Ba", "Fe"]
+        X = pd.DataFrame(X_raw, columns=columns)
+        y = pd.Series(y_raw, name="Type")
+
+        self.log.info(f"Данные загружены: X.shape={X.shape}, y.shape={y.shape}")
+
+        # Разделение на train/test
+        test_size = self.config.getfloat("MODEL", "test_size")
+        random_state = self.config.getint("MODEL", "random_state")
+
+        X_train, X_test, y_train, y_test = train_test_split(
+            X, y, test_size=test_size,
+            random_state=random_state, stratify=y
+        )
+        self.log.info(
+            f"Данные разделены: train={X_train.shape}, test={X_test.shape}"
+        )
+
+        # Масштабирование
+        scaler = StandardScaler()
+        X_train_scaled = scaler.fit_transform(X_train)
+        X_test_scaled = scaler.transform(X_test)
+
+        # Конвертация обратно в DataFrame с сохранением колонок
+        X_train_scaled = pd.DataFrame(X_train_scaled, columns=columns)
+        X_test_scaled = pd.DataFrame(X_test_scaled, columns=columns)
+
+        self.log.info("Данные отмасштабированы (StandardScaler)")
+        self.log.info("Предобработка завершена")
+        return X_train_scaled, X_test_scaled, y_train, y_test

@@ -1,4 +1,3 @@
-"""Разовый скрипт для переноса данных glass.csv в таблицу glass."""
 import pandas as pd
 import asyncio
 from sqlalchemy.ext.asyncio import create_async_engine

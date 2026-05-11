@@ -1,4 +1,3 @@
-"""Модуль обучения модели с сохранением экспериментов."""
 import configparser
 import hashlib
 import os

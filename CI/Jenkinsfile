@@ -47,7 +47,6 @@ pipeline {
 
         stage('Wait for services') {
             steps {
-                // Используем ping вместо timeout
                 bat 'chcp 65001 && ping -n 16 127.0.0.1 > nul'
             }
         }
@@ -64,12 +63,12 @@ pipeline {
                     chcp 65001
                     cd DevOps_lw2
                     for /f "tokens=*" %%i in ('docker ps -qf "name=^devops_lw2-web-1"') do set containerId=%%i
-                    IF "!containerId!" == "" (
+                    IF "%containerId%" == "" (
                         echo "No web container running"
                         exit 1
                     ) ELSE (
                         echo Running unit tests...
-                        docker exec !containerId! python -m pytest src/unit_tests/ -v
+                        docker exec %containerId% python -m pytest src/unit_tests/ -v
                     )
                 '''
             }
@@ -108,7 +107,6 @@ pipeline {
 
     post {
         always {
-            // Очистка в том же workspace, без node('windows')
             bat 'chcp 65001 && cd DevOps_lw2 && docker-compose down -v && docker logout'
         }
         success {

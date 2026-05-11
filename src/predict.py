@@ -1,4 +1,3 @@
-"""Модуль инференса (предсказания)."""
 import os
 import pickle
 import numpy as np
